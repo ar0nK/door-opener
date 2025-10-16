@@ -1,4 +1,4 @@
-#include <WiFi.h>
+#include <WiFiNINA.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
@@ -7,10 +7,10 @@ const char* ssid = "Fablab_Torino";
 const char* password = "Fablab.Torino!";
 
 // MQTT config
-const char* mqtt_server = "172.26.34.36";
+const char* mqtt_server = "172.26.34.167";
 const char* mqtt_topic_door1 = "Door1_topic";
-const char* mqtt_username = "tu_usuario";
-const char* mqtt_password = "tu_contraseña";
+const char* mqtt_username = "";
+const char* mqtt_password = "";
 
 // Network objects
 WiFiClient espClient;
@@ -43,6 +43,7 @@ void setup() {
 
   connectToWiFi();
   client.setServer(mqtt_server, 1883);
+  
   client.setCallback(callback);
   connectToMQTT();
 }
@@ -73,16 +74,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  //Turniing on the relay for 3 sec 
-  if (strcmp(topic, mqtt_topic_door1) == 0) {
-    ledStateDoor1 = true;
-    ledOnTimeDoor1 = millis();
-    sendDoorbellMessage("Door 1");
-    sendNotificationToPublisher("Door 1 opened");
-    triggerRelay();  
-  } else {
-    ledStateDoor1 = false;
-  }
+  triggerRelay();  
 }
 
 //Method to connect to wifi
