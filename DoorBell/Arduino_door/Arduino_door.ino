@@ -24,30 +24,29 @@ unsigned long ledOnTimeDoor1 = 0;
 const int relayPin = 4;
 unsigned long relayOnTime = 0;
 
-// Creating the method prototipes before the setup and loop to make the code more stable
+// Function prototypes
 void connectToWiFi();
 void connectToMQTT();
 void controlLED(int pin, bool& state, unsigned long& onTime, unsigned long duration);
 void triggerRelay(unsigned long duration = 3000);
+void callback(char* topic, byte* payload, unsigned int length);
 void publishJson(const char* topic, StaticJsonDocument<200>& doc);
 void sendDoorbellMessage(const char* doorName);
 void sendNotificationToPublisher(const char* message);
 
-//Setting up the wifi, mqtt, callback, LED and relay
+// Setup
 void setup() {
-  Serial.begin(9600);
-
   pinMode(ledPinDoor1, OUTPUT);
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);
 
   connectToWiFi();
   client.setServer(mqtt_server, 1883);
-  
   client.setCallback(callback);
   connectToMQTT();
 }
 
+// Main loop
 void loop() {
   if (!client.connected()) {
     connectToMQTT();
@@ -56,52 +55,51 @@ void loop() {
 
   controlLED(ledPinDoor1, ledStateDoor1, ledOnTimeDoor1, 5000);
 
-  //Triggering the relay
+  // Turn off relay after 3 seconds
   if (relayOnTime > 0 && millis() - relayOnTime >= 3000) {
     digitalWrite(relayPin, LOW);
-    Serial.println("Relé apagado");
     relayOnTime = 0;
   }
 }
 
-//Callback method to react messages
+// MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Mensaje recibido [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+  String message;
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
   }
-  Serial.println();
 
-  triggerRelay();  
+  StaticJsonDocument<512> doc;
+  if (deserializeJson(doc, message)) return;
+
+  const char* desc = doc["desc"] | "";
+  const char* cmd  = doc["cmd"]  | "";
+
+  if (strcmp(desc, "Doorbell ringing") == 0 && strcmp(cmd, "event") == 0) {
+    triggerRelay();
+  }
 }
 
-//Method to connect to wifi
+// Wi-Fi connection
 void connectToWiFi() {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Conectando a WiFi...");
+    delay(500);
   }
-  Serial.println("Conectado a WiFi");
 }
 
-//Metehod to connect to mqtt
+// MQTT connection
 void connectToMQTT() {
   while (!client.connected()) {
-    Serial.println("Conectando a MQTT...");
     if (client.connect("ArduinoClient", mqtt_username, mqtt_password)) {
-      Serial.println("Conectado a MQTT");
       client.subscribe(mqtt_topic_door1);
     } else {
-      Serial.print("Error al conectar: ");
-      Serial.println(client.state());
       delay(2000);
     }
   }
 }
-//Method to control LED 
+
+// LED control
 void controlLED(int pin, bool& state, unsigned long& onTime, unsigned long duration) {
   if (state && millis() - onTime >= duration) {
     state = false;
@@ -109,20 +107,20 @@ void controlLED(int pin, bool& state, unsigned long& onTime, unsigned long durat
   digitalWrite(pin, state);
 }
 
-//Method to trigger the relay
+// Relay trigger
 void triggerRelay(unsigned long duration) {
   digitalWrite(relayPin, HIGH);
-  Serial.println("Relé activado");
-  relayOnTime = millis();  
+  relayOnTime = millis();
 }
-//Method to convert to json and send it to the client
+
+// Publish JSON
 void publishJson(const char* topic, StaticJsonDocument<200>& doc) {
   String jsonString;
   serializeJson(doc, jsonString);
   client.publish(topic, jsonString.c_str());
-  Serial.println(jsonString);
 }
-//Making the doorbell's message 
+
+// Send doorbell event
 void sendDoorbellMessage(const char* doorName) {
   StaticJsonDocument<200> doc;
   doc["type"] = "INFO";
@@ -134,7 +132,8 @@ void sendDoorbellMessage(const char* doorName) {
   doc["hostname"] = String(doorName) + "_topic";
   publishJson("door/events", doc);
 }
-//Sending the message to the publisher
+
+// Send notification
 void sendNotificationToPublisher(const char* message) {
   StaticJsonDocument<200> doc;
   doc["type"] = "INFO";
