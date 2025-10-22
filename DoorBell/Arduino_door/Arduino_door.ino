@@ -9,8 +9,7 @@ const char* password = "Fablab.Torino!";
 // MQTT config
 const char* mqtt_server = "172.26.34.167";
 const char* mqtt_topic_door1 = "Door1_topic";
-const char* mqtt_username = "";
-const char* mqtt_password = "";
+
 
 // Network objects
 WiFiClient espClient;
@@ -91,8 +90,9 @@ void connectToWiFi() {
 // MQTT connection
 void connectToMQTT() {
   while (!client.connected()) {
-    if (client.connect("ArduinoClient", mqtt_username, mqtt_password)) {
+    if (client.connect("ArduinoClient")) {
       client.subscribe(mqtt_topic_door1);
+      
     } else {
       delay(2000);
     }
