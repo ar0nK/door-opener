@@ -3,12 +3,12 @@
 #include <ArduinoJson.h>
 
 // WIFI config
-const char* ssid = "Fablab_Torino";
-const char* password = "Fablab.Torino!";
+const char* ssid = "Fablab_TorinoSTAFF";
+const char* password = "Fablab.TorinoSTAFF!";
 
 // MQTT config
-const char* mqtt_server = "172.26.34.167";
-const char* mqtt_topic_door1 = "Door1_topic";
+const char* mqtt_server = "192.168.0.1";
+const char* mqtt_topic_door1 = "esp-rfid/send";
 
 
 // Network objects
@@ -27,20 +27,26 @@ void callback(char* topic, byte* payload, unsigned int length);
 
 // Setup
 void setup() {
-  
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);
+
+  
 
   connectToWiFi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   connectToMQTT();
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+  
+  
 }
 
 // Main loop
 void loop() {
   //Wifi reconnection
-   if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED) {
     connectToWiFi();
   }
 
@@ -60,6 +66,7 @@ void loop() {
 
 // MQTT callback
 void callback(char* topic, byte* payload, unsigned int length) {
+  
   String message;
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
@@ -89,7 +96,6 @@ void connectToMQTT() {
   while (!client.connected()) {
     if (client.connect("ArduinoClient")) {
       client.subscribe(mqtt_topic_door1);
-      
     } else {
       delay(2000);
     }
